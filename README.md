@@ -22,7 +22,7 @@ One command, about five minutes:
 | Settings | Squash merge only, auto-merge on, branches deleted after merge, Dependabot security updates, read-only workflow token |
 | Protection | `main` requires `ci / Validate` and `pr / Product outcome`, from GitHub Actions only, admins included |
 | First CI | A bootstrap PR (name and title filled in) runs full CI on the netcup runners and auto-merges when green |
-| Railway | Project `guest-portal` with PostgreSQL and a `web` service deploying `main`; migrations run before each deploy; `/api/health` gates traffic |
+| Railway | Project `guest-portal` created from the repo's `.railway/railway.ts` (Infrastructure as Code): PostgreSQL and a `web` service deploying `main`; migrations run before each deploy; `/api/health` gates traffic. `railway.toml`/`railway.json` are deprecated and stop working on 2026-12-01 |
 | By hand | The script prints the rest: usage limit, app secrets, custom domain, first outcome issue |
 
 Retire one with `~/Dev/tooling/bin/archive-project <slug>` and the
@@ -90,7 +90,7 @@ a PR you re-run the check instead of pushing. Dependabot PRs are exempt.
 |---|---|
 | [`pull_request_template.md`](pull_request_template.md) | `.github/pull_request_template.md` (also the org default) |
 | [`templates/ci-caller.yml`](templates/ci-caller.yml), [`templates/pr-caller.yml`](templates/pr-caller.yml) | `.github/workflows/ci.yml`, `.github/workflows/pr.yml` |
-| [`templates/dependabot.yml`](templates/dependabot.yml) | `.github/dependabot.yml` (monthly, grouped) |
+| [`templates/dependabot.yml`](templates/dependabot.yml) | `.github/dependabot.yml` (monthly, grouped, majors ignored; security updates always) |
 | [`templates/CLAUDE-ci.md`](templates/CLAUDE-ci.md) | Appended to the project's `CLAUDE.md` |
 | `templates/claude-caller.yml` (reserved) | `.github/workflows/claude.yml`: the `@claude` / `claude`-label trigger for the Claude Code GitHub Action, on the netcup runners. Added by the Claude Code action rollout, not part of the first version of the path. |
 
