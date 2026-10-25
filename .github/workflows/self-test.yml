@@ -29,6 +29,8 @@ jobs:
       - name: Lint workflows
         run: |
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
-          ./actionlint -color .github/workflows/*.yml templates/*-caller.yml
+          # actionlint does not know job.workflow_repository / job.workflow_sha
+          # yet (documented GitHub contexts for reusable workflows).
+          ./actionlint -color -ignore 'property "workflow_(repository|sha)" is not defined' .github/workflows/*.yml templates/*-caller.yml
       - name: Test CI scripts
         run: node --test scripts/ci/*.node-test.mjs
