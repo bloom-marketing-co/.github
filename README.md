@@ -11,7 +11,7 @@ This repository does two jobs for every repository in `bloom-marketing-co`:
 ## Start a new project
 
 ```bash
-~/Dev/tooling/bin/new-project guest-portal --title "Guest Portal"
+~/Dev/golden-path/tooling/bin/new-project guest-portal --title "Guest Portal"
 ```
 
 One command, about five minutes:
@@ -25,7 +25,7 @@ One command, about five minutes:
 | Railway | Project `guest-portal` created from the repo's `.railway/railway.ts` (Infrastructure as Code): PostgreSQL and a `web` service deploying `main`; migrations run before each deploy; `/api/health` gates traffic. `railway.toml`/`railway.json` are deprecated and stop working on 2026-12-01 |
 | By hand | The script prints the rest: usage limit, app secrets, custom domain, first outcome issue |
 
-Retire one with `~/Dev/tooling/bin/archive-project <slug>` and the
+Retire one with `~/Dev/golden-path/tooling/bin/archive-project <slug>` and the
 [archive checklist](https://github.com/bloom-marketing-co/tooling/blob/main/ARCHIVE.md).
 
 ## Shared CI
