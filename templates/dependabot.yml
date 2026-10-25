@@ -1,7 +1,9 @@
 # Canonical Dependabot config for bloom-marketing-co projects.
 # Monthly and grouped, so it opens at most a couple of PRs a month per repo
-# (each one runs full CI on the netcup runners). Security updates are separate
-# and arrive as soon as an advisory is published.
+# (each one runs full CI on the netcup runners). Major versions are ignored:
+# upgrading TypeScript, Next.js or Node types is a deliberate change made in its
+# own PR. Security updates are separate and arrive as soon as an advisory is
+# published, majors included.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -12,6 +14,9 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

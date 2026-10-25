@@ -32,7 +32,7 @@ function checkFixture(changes, expected, references) {
 test('docs, screenshots and agent notes qualify; code, config and empty diffs do not', () => {
   assert.equal(documentationOnly(['docs/reviews/new.md', 'docs/sprints/sample/mobile.png', 'README.md', 'CLAUDE.md'], () => false), true);
   assert.equal(documentationOnly([], () => false), false);
-  for (const path of ['app/page.tsx', 'lib/db.ts', 'package.json', 'package-lock.json', 'prisma/schema.prisma', '.github/workflows/ci.yml', 'scripts/check.mjs', 'docs/pricing/rates.pdf', 'docs/reviews/catalog.json', 'docs/reviews/demo.html', 'railway.toml', '.env.example', 'lefthook.yml']) {
+  for (const path of ['app/page.tsx', 'lib/db.ts', 'package.json', 'package-lock.json', 'prisma/schema.prisma', '.github/workflows/ci.yml', 'scripts/check.mjs', 'docs/pricing/rates.pdf', 'docs/reviews/catalog.json', 'docs/reviews/demo.html', 'railway.toml', '.railway/railway.ts', '.env.example', 'lefthook.yml']) {
     assert.equal(documentationOnly(['docs/reviews/new.md', path], () => false), false, path);
   }
 });
