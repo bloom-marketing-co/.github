@@ -1,0 +1,21 @@
+# Canonical Dependabot config for bloom-marketing-co projects.
+# Monthly and grouped, so it opens at most a couple of PRs a month per repo
+# (each one runs full CI on the netcup runners). Security updates are separate
+# and arrive as soon as an advisory is published.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

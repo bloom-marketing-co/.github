@@ -50,6 +50,16 @@ Anything deferred, untested or uncertain, and anything a person has to do after 
 (a setting, a data change, a message to a client). Write "None" if there's nothing.
 -->
 
+## Product outcome
+
+<!--
+Required where CI checks it (repos created from the golden path). Link the issue that records
+the outcome this PR serves, or write "Not applicable" on both lines for chores and tooling.
+-->
+
+- Outcome issue: <!-- #123, a bloom-marketing-co issue URL, or "Not applicable" -->
+- Relationship: <!-- Advances / Implements / Verification only / Not applicable -->
+
 ## Links
 
 <!-- The brief, ticket or sprint plan this came from. "Closes #123" closes that ticket when this merges. -->

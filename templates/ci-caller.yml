@@ -1,0 +1,15 @@
+name: CI
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  schedule:
+    - cron: "17 6 * * 0" # weekly main backstop on GitHub-hosted runners
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ci:
+    uses: bloom-marketing-co/.github/.github/workflows/ci.yml@v1
+    with:
+      postgres: true
+      setup-command: npm run db:migrate && npm run db:check-drift

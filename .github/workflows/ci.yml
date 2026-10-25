@@ -1,0 +1,205 @@
+name: CI (reusable)
+
+# Shared CI for bloom-marketing-co Node projects. A project calls it from a
+# short .github/workflows/ci.yml (see templates/ci-caller.yml).
+#
+# Budget: ONE job per run. Drafts and documentation-only PRs skip the install
+# and the database entirely. Pull requests run on the free self-hosted netcup
+# runners; the weekly main backstop and manual runs use GitHub-hosted runners
+# so a dead netcup box never blocks a merge. Do not split this into parallel
+# jobs: every extra job pays its own checkout, install and per-minute rounding
+# on hosted runners, and holds one of only four netcup runners shared by every
+# repo in the org. State the billed-minutes cost in the PR if you must.
+#
+# Required check name in branch protection: "ci / Validate" (caller job id
+# `ci`, this job's name `Validate`).
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version for actions/setup-node.
+        type: string
+        default: "22"
+      postgres:
+        description: Start a PostgreSQL 18 service and export DATABASE_URL.
+        type: boolean
+        default: false
+      cache:
+        description: Package manager cache for actions/setup-node (npm, pnpm, yarn), or empty for none.
+        type: string
+        default: npm
+      install-command:
+        type: string
+        default: npm ci --no-audit --no-fund
+      setup-command:
+        description: Runs after install with DATABASE_URL set, e.g. `npx prisma migrate deploy`. Empty to skip.
+        type: string
+        default: ""
+      typecheck-command:
+        description: Empty to skip.
+        type: string
+        default: npm run typecheck
+      test-command:
+        description: Empty to skip.
+        type: string
+        default: npm test
+      build-command:
+        description: Empty to skip.
+        type: string
+        default: npm run build
+      quick-command:
+        description: Cheap checks for drafts and docs-only PRs. Runs without installing dependencies. Empty to skip.
+        type: string
+        default: ""
+      next-cache:
+        description: Restore and save the Next.js build cache (.next/cache).
+        type: boolean
+        default: true
+      timeout-minutes:
+        type: number
+        default: 20
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ${{ github.event_name == 'pull_request' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    # A new push to a pull request cancels the run for the older commit.
+    concurrency:
+      group: ci-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    services:
+      postgres:
+        # An empty image means the service is not started.
+        image: ${{ inputs.postgres && 'postgres:18' || '' }}
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: app_ci
+        # Dynamic host port: several jobs share each netcup host.
+        ports:
+          - 5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d app_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The policy comes from the shared repo at the exact commit of this
+      # workflow, or from the project's own scripts/ci/change-policy.mjs as it
+      # exists on the BASE commit. A pull request can never weaken its own
+      # classification. Errors, missing history and non-PR runs mean full CI.
+      - name: Select checks
+        id: policy
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SHARED_REPO: ${{ job.workflow_repository }}
+          SHARED_SHA: ${{ job.workflow_sha }}
+        run: |
+          docs_only=false
+          if [ "$EVENT_NAME" = pull_request ]; then
+            policy="$RUNNER_TEMP/change-policy.mjs"
+            if git cat-file -e "$BASE_SHA:scripts/ci/change-policy.mjs" 2>/dev/null; then
+              git show "$BASE_SHA:scripts/ci/change-policy.mjs" > "$policy"
+              echo "Using the project's change policy from the base commit."
+            else
+              curl -fsSL "https://raw.githubusercontent.com/$SHARED_REPO/$SHARED_SHA/scripts/ci/change-policy.mjs" -o "$policy" || rm -f "$policy"
+            fi
+            if [ -s "$policy" ]; then
+              result=$(node "$policy" "$BASE_SHA" "$HEAD_SHA") || result='docs_only=false'
+              if [ "$result" = 'docs_only=true' ]; then docs_only=true; fi
+            fi
+          fi
+          mode=full
+          if [ "$EVENT_NAME" = pull_request ]; then
+            if [ "$docs_only" = true ]; then mode=docs
+            elif [ "$IS_DRAFT" = true ]; then mode=draft
+            fi
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Mode: $mode (documentation only: $docs_only, draft: ${IS_DRAFT:-n/a})"
+
+      # ---- Drafts and documentation-only changes: no install, no database.
+      - name: Set up Node (quick)
+        if: ${{ steps.policy.outputs.mode != 'full' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Check patch formatting
+        if: ${{ steps.policy.outputs.mode != 'full' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: git diff --check "$BASE_SHA...$HEAD_SHA"
+
+      - name: Quick checks
+        if: ${{ steps.policy.outputs.mode != 'full' && inputs.quick-command != '' }}
+        run: ${{ inputs.quick-command }}
+
+      - name: Refuse to pass a draft with application changes
+        if: ${{ steps.policy.outputs.mode == 'draft' }}
+        run: |
+          echo '::error::Draft application changes received lightweight feedback only. Mark this PR ready for review to run the full checks before merging.'
+          exit 1
+
+      # ---- Full verification.
+      - name: Set up Node
+        if: ${{ steps.policy.outputs.mode == 'full' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.cache }}
+
+      - name: Point DATABASE_URL at this job's PostgreSQL 18
+        if: ${{ steps.policy.outputs.mode == 'full' && inputs.postgres }}
+        run: |
+          echo "DATABASE_URL=postgresql://ci:ci@localhost:${{ job.services.postgres.ports['5432'] }}/app_ci" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        id: install
+        if: ${{ steps.policy.outputs.mode == 'full' }}
+        run: ${{ inputs.install-command }}
+
+      # Each check below runs even if an earlier one failed, so one run reports
+      # every failure. Only a failed install skips them.
+      - name: Set up database
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && inputs.setup-command != '' }}
+        run: ${{ inputs.setup-command }}
+
+      - name: Typecheck
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && inputs.typecheck-command != '' }}
+        run: ${{ inputs.typecheck-command }}
+
+      - name: Test
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && inputs.test-command != '' }}
+        run: ${{ inputs.test-command }}
+
+      # Next's incremental build cache; a cold cache only costs the old time.
+      - name: Restore Next.js build cache
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && inputs.next-cache && inputs.build-command != '' }}
+        uses: actions/cache@v6
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'src/**', 'components/**', 'lib/**', 'next.config.*') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+
+      - name: Build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && inputs.build-command != '' }}
+        run: ${{ inputs.build-command }}

@@ -1,0 +1,11 @@
+name: PR
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+jobs:
+  pr:
+    uses: bloom-marketing-co/.github/.github/workflows/pr-outcome.yml@v1
